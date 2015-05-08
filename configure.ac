@@ -4,8 +4,6 @@ AM_CONFIG_HEADER(config.h)
 AM_INIT_AUTOMAKE()
 AM_SILENT_RULES([yes])
 
-DATE=`date '+%B %e, %Y'`
-AC_SUBST(DATE)
 AC_SUBST(VERSION)
 
 # Checks for programs.
@@ -64,7 +62,7 @@ AC_CHECK_FUNCS([atexit dup2 mkdir select strchr strcspn strdup strerror strrchr 
 X_CFLAGS="$X_CFLAGS \$(Xmu_CFLAGS) \$(Xmuu_CFLAGS) \$(Xfixes_CFLAGS) \$(Xext_CFLAGS)"
 X_LIBS="\$(X_PRE_LIBS) $X_LIBS \$(LINK_XPM) -lX11 \$(X_EXTRA_LIBS) \$(Xmu_LIBS) \$(Xmuu_LIBS) \$(Xfixes_LIBS) \$(Xext_LIBS)"
 
-AC_CONFIG_FILES([Makefile wmsystemtray.1])
+AC_CONFIG_FILES([Makefile])
 AC_CONFIG_FILES([b0rken/Makefile])
 AC_CONFIG_FILES([m4/Makefile])
 AC_OUTPUT

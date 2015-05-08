@@ -28,5 +28,4 @@ Makefile.in
 # Generated files
 *.a
 *.o
-/wmsystemtray.1
 wmsystemtray
