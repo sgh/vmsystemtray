@@ -584,7 +584,7 @@ int main(int argc, char *argv[]){
 
     warn(DEBUG_DEBUG, "Initializing protocols");
     for(int i=0; i<NUM_TYPES; i++) types[i]=NULL;
-    if(!(types[0] = fdtray_init(0, argc, argv)))
+    if(!(types[0] = fdtray_init(0)))
         die("Could not initialize the freedesktop.org tray protocol");
 
     warn(DEBUG_DEBUG, "Setting signal handlers");

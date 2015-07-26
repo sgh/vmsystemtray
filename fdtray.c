@@ -211,7 +211,7 @@ static struct trayfuncs funcs = {
     .deinit = NULL
 };
 
-struct trayfuncs *fdtray_init(int id, int argc, char **argv){
+struct trayfuncs *fdtray_init(int id){
     char buf[50];
     XEvent ev;
 
