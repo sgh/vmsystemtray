@@ -1,14 +1,11 @@
-//#include <X11/Xlib.h>
-//#include <X11/Xatom.h>
-//#include <X11/xpm.h>
+#include <malloc.h>
 #include <X11/extensions/Xfixes.h>
-//#include <X11/extensions/shape.h>
-//#include <X11/Xmu/SysUtil.h>
 
 
 #include "icon.h"
 #include "global.h"
 #include "warn.h"
+#include "wmsystemtray.h"
 
 static struct trayicon *icons=NULL;
 

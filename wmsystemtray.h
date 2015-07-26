@@ -4,6 +4,8 @@
 #include <signal.h>
 #include <X11/Xlib.h>
 
+void cleanup();
+
 
 /*
  * Global variables

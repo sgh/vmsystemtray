@@ -1,7 +1,9 @@
 #include "warn.h"
 #include "global.h"
+#include "wmsystemtray.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 
 /* Error and warning functions */
 void warn(int level, char *fmt, ...){
