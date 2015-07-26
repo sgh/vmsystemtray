@@ -62,7 +62,6 @@ static void create_dock_windows(struct wmsystemtray_options* options /*int argc,
         { .x = 8, .y = 4, .width = 48, .height = 48 },
         { .x = 4, .y = 52, .width = 56, .height = 10 }
     };
-    Atom           _NET_WM_PID;
     XGCValues      gcv;
     unsigned long  gcm;
     char           buf[1024];
@@ -71,12 +70,6 @@ static void create_dock_windows(struct wmsystemtray_options* options /*int argc,
 
     pid = getpid();
     warn(DEBUG_DEBUG, "My pid is %d", pid);
-
-    warn(DEBUG_INFO, "Opening display '%s'", XDisplayName(options->display_name));
-    if(!(display = XOpenDisplay(options->display_name)))
-        die("Can't open display %s", XDisplayName(options->display_name));
-    screen = DefaultScreen(display);
-    root = RootWindow(display, screen);
 
     fgpix = BlackPixel(display, screen);
     bgpix = WhitePixel(display, screen);
@@ -113,11 +106,11 @@ static void create_dock_windows(struct wmsystemtray_options* options /*int argc,
         }
     }
 
-    warn(DEBUG_DEBUG, "Interning atoms");
-    _NET_WM_PING = XInternAtom(display, "_NET_WM_PING", False);
-    _NET_WM_PID = XInternAtom(display, "_NET_WM_PID", False);
-    WM_PROTOCOLS = XInternAtom(display, "WM_PROTOCOLS", False);
-    WM_DELETE_WINDOW = XInternAtom(display, "WM_DELETE_WINDOW", False);
+//    warn(DEBUG_DEBUG, "Interning atoms");
+//    _NET_WM_PING = XInternAtom(display, "_NET_WM_PING", False);
+//    _NET_WM_PID = XInternAtom(display, "_NET_WM_PID", False);
+//    WM_PROTOCOLS = XInternAtom(display, "WM_PROTOCOLS", False);
+//    WM_DELETE_WINDOW = XInternAtom(display, "WM_DELETE_WINDOW", False);
 
     /* Load images */
     warn(DEBUG_DEBUG, "Loading XPM");
@@ -163,7 +156,7 @@ static void create_dock_windows(struct wmsystemtray_options* options /*int argc,
     }
 
     wmProtocols[0] = _NET_WM_PING;
-    wmProtocols[1] = WM_DELETE_WINDOW;
+    wmProtocols[1] = _WM_DELETE_WINDOW;
 
     machineName.encoding = XA_STRING;
     machineName.format = 8;
@@ -175,18 +168,6 @@ static void create_dock_windows(struct wmsystemtray_options* options /*int argc,
     mainwin = malloc(num_windows * sizeof(*mainwin));
     iconwin = nonwmaker?mainwin:malloc(num_windows * sizeof(*iconwin));
     if(!mainwin || !iconwin) die("Memory allocation failed");
-
-    warn(DEBUG_DEBUG, "Creating selection window");
-    selwindow = XCreateSimpleWindow(display, root, -1,-1,1,1,0,0,0);
-    XSelectInput(display, selwindow, selwindow_mask);
-    strncpy(buf, "selwindow", sizeof(buf));
-    XSetClassHint(display, selwindow, classHint);
-    XStoreName(display, selwindow, PROGNAME);
-//    XSetCommand(display, selwindow, argv, argc);
-    XSetWMProtocols(display, selwindow, wmProtocols, 2);
-    XSetWMClientMachine(display, selwindow, &machineName);
-    XChangeProperty(display, selwindow, _NET_WM_PID, XA_CARDINAL, 32, PropModeReplace, (unsigned char *)&pid, 1);
-    XShapeCombineRectangles(display, selwindow, ShapeBounding, 0, 0, NULL, 0, ShapeSet, YXBanded);
 
     warn(DEBUG_DEBUG, "Creating GCs");
     gcm = GCForeground | GCBackground | GCGraphicsExposures | GCFont;

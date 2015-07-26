@@ -64,8 +64,9 @@ int screen=0;
 Window root=None;
 Window selwindow=None;
 Atom _NET_WM_PING;
-Atom WM_DELETE_WINDOW;
-Atom WM_PROTOCOLS;
+Atom _NET_WM_PID;
+Atom _WM_DELETE_WINDOW;
+Atom _WM_PROTOCOLS;
 
 Pixmap pixmap;
 Window *mainwin=NULL;
@@ -358,14 +359,88 @@ static int parse_args(int argc, char **argv){
     return j;
 }
 
+
+void initialize_x11_connection()
+{
+    warn(DEBUG_DEBUG, "Initializing X11 connectino");
+    warn(DEBUG_INFO, "Opening display '%s'", XDisplayName(options.display_name));
+    if(!(display = XOpenDisplay(options.display_name)))
+        die("Can't open display %s", XDisplayName(options.display_name));
+
+    XClassHint     *classHint;
+    XWMHints       *wmHints;
+    Atom           wmProtocols[2];
+    char           hostname[256];
+    XTextProperty  machineName;
+    char           buf[1024];
+    int            err, pid;
+
+    pid = getpid();
+    warn(DEBUG_DEBUG, "My pid is %d", pid);
+
+    warn(DEBUG_DEBUG, "Creating windows");
+    screen = DefaultScreen(display);
+    root = RootWindow(display, screen);
+
+
+    warn(DEBUG_DEBUG, "Interning atoms");
+    _NET_WM_PING = XInternAtom(display, "_NET_WM_PING", False);
+    _NET_WM_PID = XInternAtom(display, "_NET_WM_PID", False);
+    _WM_PROTOCOLS = XInternAtom(display, "WM_PROTOCOLS", False);
+    _WM_DELETE_WINDOW = XInternAtom(display, "WM_DELETE_WINDOW", False);
+
+
+    /* Create hints */
+    warn(DEBUG_DEBUG, "Allocating window hints");
+    classHint = XAllocClassHint();
+    wmHints = XAllocWMHints();
+
+    classHint->res_class = "wmsystemtray";
+    classHint->res_name = buf;
+
+    wmProtocols[0] = _NET_WM_PING;
+    wmProtocols[1] = _WM_DELETE_WINDOW;
+
+    machineName.encoding = XA_STRING;
+    machineName.format = 8;
+    machineName.nitems = XmuGetHostname(hostname, sizeof(hostname));
+    machineName.value = (unsigned char *) hostname;
+
+    /* Create windows */
+    warn(DEBUG_DEBUG, "Allocating space for %d windows", num_windows);
+    mainwin = malloc(num_windows * sizeof(*mainwin));
+    iconwin = nonwmaker?mainwin:malloc(num_windows * sizeof(*iconwin));
+    if(!mainwin || !iconwin) die("Memory allocation failed");
+
+    warn(DEBUG_DEBUG, "Creating selection window");
+    selwindow = XCreateSimpleWindow(display, root, -1,-1,1,1,0,0,0);
+    XSelectInput(display, selwindow, selwindow_mask);
+    strncpy(buf, "selwindow", sizeof(buf));
+    XSetClassHint(display, selwindow, classHint);
+    XStoreName(display, selwindow, PROGNAME);
+//    XSetCommand(display, selwindow, argv, argc);
+    XSetWMProtocols(display, selwindow, wmProtocols, 2);
+    XSetWMClientMachine(display, selwindow, &machineName);
+    XChangeProperty(display, selwindow, _NET_WM_PID, XA_CARDINAL, 32, PropModeReplace, (unsigned char *)&pid, 1);
+    XShapeCombineRectangles(display, selwindow, ShapeBounding, 0, 0, NULL, 0, ShapeSet, YXBanded);
+
+
+    warn(DEBUG_DEBUG, "Freeing X hints");
+    XFree(wmHints);
+    XFree(classHint);
+
+
+}
+
 int main(int argc, char *argv[]){
     warn(DEBUG_DEBUG, "Parsing args");
     argc = parse_args(argc, argv);
 
-    warn(DEBUG_DEBUG, "Creating windows");
+    initialize_x11_connection();
 
     warn(DEBUG_DEBUG, "Initializing protocols");
     fdtray_init(0, standalone_tray_callbacks(), &options);
+//    fdtray_init(0, qt5_tray_callbacks(), &options);
 
     warn(DEBUG_DEBUG, "Setting signal handlers");
     signal(SIGINT, sighandler);
@@ -495,12 +570,12 @@ int main(int argc, char *argv[]){
                 break;
 
               case ClientMessage:
-                if(ev.xclient.message_type == WM_PROTOCOLS && ev.xclient.format == 32){
+                if(ev.xclient.message_type == _WM_PROTOCOLS && ev.xclient.format == 32){
                     if(ev.xclient.data.l[0] == _NET_WM_PING){
                         warn(DEBUG_DEBUG, "_NET_WM_PING!");
                         ev.xclient.window = root;
                         XSendEvent(display, root, False, SubstructureNotifyMask|SubstructureRedirectMask, &ev);
-                    } else if(ev.xclient.data.l[0] == WM_DELETE_WINDOW){
+                    } else if(ev.xclient.data.l[0] == _WM_DELETE_WINDOW){
                         warn(DEBUG_DEBUG, "WM_DELETE_WINDOW called for %lx!", ev.xclient.window);
                         exitapp=1;
                     }

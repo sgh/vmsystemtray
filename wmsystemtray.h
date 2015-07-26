@@ -30,8 +30,9 @@ extern Window root;
 extern int iconsize;
 
 extern Atom _NET_WM_PING;
-extern Atom WM_DELETE_WINDOW;
-extern Atom WM_PROTOCOLS;
+extern Atom _NET_WM_PID;
+extern Atom _WM_DELETE_WINDOW;
+extern Atom _WM_PROTOCOLS;
 extern Pixmap pixmap;
 extern char *geometry;
 extern Window *mainwin;
