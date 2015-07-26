@@ -338,7 +338,6 @@ static void standalone_configure(XConfigureEvent* configure)
 
 static void standalone_reparent(XReparentEvent* reparent)
 {
-    void *v;
     struct trayicon *icon;
     icon = icon_find(reparent->window);
     if(!icon || icon->type!=0/*my_id*/)
@@ -353,7 +352,6 @@ static void standalone_reparent(XReparentEvent* reparent)
 
 static void standalone_destroywindow(XDestroyWindowEvent* destroywindow)
 {
-    void *v;
     struct trayicon *icon;
     icon = icon_find(destroywindow->window);
     if(!icon || icon->type!=0/*my_id*/)

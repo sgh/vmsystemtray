@@ -373,7 +373,7 @@ void initialize_x11_connection()
     char           hostname[256];
     XTextProperty  machineName;
     char           buf[1024];
-    int            err, pid;
+    int            pid;
 
     pid = getpid();
     warn(DEBUG_DEBUG, "My pid is %d", pid);

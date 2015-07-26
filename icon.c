@@ -35,6 +35,7 @@ struct trayicon *icon_add(int type, Window w, void *data){
     XFixesChangeSaveSet(display, w, SetModeInsert, SaveSetRoot, SaveSetUnmap);
     if(uncatch_BadWindow_errors(v)){
         warn(DEBUG_INFO, "Tray icon %lx is invalid, not adding", w);
+        free(icon);
         return NULL;
     }
 

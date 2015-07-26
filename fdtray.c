@@ -40,9 +40,6 @@ static struct fdtray_callback* _callbacks;
 
 
 void fdtray_handle_event(XEvent *ev){
-    struct trayicon *icon;
-    void *v;
-
     switch(ev->type){
       case SelectionClear:
         if(ev->xselectionclear.selection == net_system_tray_s && XGetSelectionOwner(display, net_system_tray_s) != selwindow){
