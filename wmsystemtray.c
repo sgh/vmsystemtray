@@ -39,6 +39,7 @@
 #include "warn.h"
 #include "icon.h"
 #include "standalone_tray.h"
+#include "qt5_tray.h"
 
 /* Global variables */
 volatile sig_atomic_t sigusr=0;

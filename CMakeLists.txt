@@ -44,6 +44,7 @@ set(SOURCES
 	warn.c
 	global.c
 	standalone_tray.c
+	qt5_tray.c
 )
 
 
@@ -54,6 +55,7 @@ set(HEADERS
 	warn.h
 	global.h
 	standalone_tray.h
+	qt5_tray.h
 )
 
 
