@@ -6,7 +6,7 @@
 #include <stdlib.h>
 
 /* Error and warning functions */
-void warn(int level, char *fmt, ...){
+void warn(int level, const char *fmt, ...){
     va_list ap;
 
     if(debug_level<level) return;

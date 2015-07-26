@@ -44,7 +44,7 @@ set(SOURCES
 	warn.c
 	global.c
 	standalone_tray.c
-	qt5_tray.c
+	qt5_tray.cpp
 )
 
 

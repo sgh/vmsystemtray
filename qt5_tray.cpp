@@ -6,7 +6,7 @@
 
 
 
-static void qt5_init()
+static void qt5_init(struct wmsystemtray_options* options)
 {
     warn(DEBUG_WARN, "qt5: init");
 }
