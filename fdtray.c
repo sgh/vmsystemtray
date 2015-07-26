@@ -159,18 +159,18 @@ static void event(XEvent *ev){
       case ClientMessage:
         if(ev->xclient.message_type == net_system_tray_opcode){
             switch(ev->xclient.data.l[1]){
-              case 0: // SYSTEM_TRAY_REQUEST_DOCK
+              case SYSTEM_TRAY_REQUEST_DOCK:
                 add(ev->xclient.data.l[2]);
                 break;
 
-              case 1: // SYSTEM_TRAY_BEGIN_MESSAGE
+              case SYSTEM_TRAY_BEGIN_MESSAGE:
                 icon = icon_find(ev->xclient.window);
                 if(!icon || icon->type!=my_id) break;
                 *(int *)icon->data = ev->xclient.data.l[4];
                 icon_begin_message(icon->w, ev->xclient.data.l[4], ev->xclient.data.l[3], ev->xclient.data.l[2]);
                 break;
 
-              case 2: // SYSTEM_TRAY_CANCEL_MESSAGE
+              case SYSTEM_TRAY_CANCEL_MESSAGE:
                 icon = icon_find(ev->xclient.window);
                 if(!icon || icon->type!=my_id) break;
                 icon_cancel_message(icon->w, ev->xclient.data.l[2]);
