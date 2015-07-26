@@ -103,11 +103,13 @@ void fdtray_closing(){
 }
 
 
-void fdtray_init(int id, struct fdtray_callback* callbacks){
+void fdtray_init(int id, struct fdtray_callback* callbacks, struct wmsystemtray_options* options){
     char buf[50];
     XEvent ev;
 
     _callbacks = callbacks;
+    _callbacks->init(options);
+
     // Get the necessary atoms
     my_id = id;
     warn(DEBUG_DEBUG, "fdtray: Loading atoms");
@@ -116,7 +118,6 @@ void fdtray_init(int id, struct fdtray_callback* callbacks){
     net_system_tray_opcode = XInternAtom(display, "_NET_SYSTEM_TRAY_OPCODE", False);
     net_system_tray_message_data = XInternAtom(display, "_NET_SYSTEM_TRAY_MESSAGE_DATA", False);
     manager = XInternAtom(display, "MANAGER", False);
-    _callbacks->init();
 
     // Try to grab the system tray selection. ICCCM specifies that we first
     // check for an existing owner, then grab it with a non-CurrentTime

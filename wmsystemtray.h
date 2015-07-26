@@ -4,6 +4,14 @@
 #include <signal.h>
 #include <X11/Xlib.h>
 
+
+struct wmsystemtray_options
+{
+    const char* display_name;
+    const char* fgcolor;
+    const char* bgcolor;
+};
+
 void cleanup();
 
 
@@ -21,10 +29,18 @@ extern Window root;
 // Be sure your icons remain this size or smaller.
 extern int iconsize;
 
+extern Atom _NET_WM_PING;
+extern Atom WM_DELETE_WINDOW;
+extern Atom WM_PROTOCOLS;
+extern Pixmap pixmap;
+extern char *geometry;
+extern Window *mainwin;
+
 // This (dummy) window exists for use in holding ICCCM manager selections and
 // such. Use the provided utility function instead of XSelectInput
 extern Window selwindow;
-void selwindow_add_mask(long mask);
+extern long selwindow_mask;
+extern GC gc10x20, gc5x8;
 
 struct trayfuncs *get_type(int id);
 

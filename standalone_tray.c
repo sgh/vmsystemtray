@@ -1,8 +1,19 @@
 #include "standalone_tray.h"
 #include "warn.h"
 #include "icon.h"
+#include "global.h"
+#include "wmsystemtray.xpm"
+
+#include <X11/Xlib.h>
+#include <X11/Xatom.h>
+#include <X11/xpm.h>
+#include <X11/extensions/Xfixes.h>
+#include <X11/extensions/shape.h>
+#include <X11/Xmu/SysUtil.h>
 
 #include <malloc.h>
+#include <string.h>
+#include <unistd.h>
 
 static Atom xembed_info;
 static Atom xembed;
@@ -40,8 +51,208 @@ static void send_xembed_notify(Window w, Window parent){
 }
 
 
-static void standalone_init()
+static void create_dock_windows(struct wmsystemtray_options* options /*int argc, char **argv*/){
+    XClassHint     *classHint;
+    XWMHints       *wmHints;
+    XSizeHints     *sizeHints;
+    Atom           wmProtocols[2];
+    char           hostname[256];
+    XTextProperty  machineName;
+    XRectangle     rects[2] = {
+        { .x = 8, .y = 4, .width = 48, .height = 48 },
+        { .x = 4, .y = 52, .width = 56, .height = 10 }
+    };
+    Atom           _NET_WM_PID;
+    XGCValues      gcv;
+    unsigned long  gcm;
+    char           buf[1024];
+    int            err, dummy=0, pid;
+    Pixel          fgpix, bgpix;
+
+    pid = getpid();
+    warn(DEBUG_DEBUG, "My pid is %d", pid);
+
+    warn(DEBUG_INFO, "Opening display '%s'", XDisplayName(options->display_name));
+    if(!(display = XOpenDisplay(options->display_name)))
+        die("Can't open display %s", XDisplayName(options->display_name));
+    screen = DefaultScreen(display);
+    root = RootWindow(display, screen);
+
+    fgpix = BlackPixel(display, screen);
+    bgpix = WhitePixel(display, screen);
+    if(options->fgcolor != NULL){
+        warn(DEBUG_DEBUG, "Allocating colormap entry for fgcolor '%s'", options->fgcolor);
+        XColor color;
+        XWindowAttributes a;
+        XGetWindowAttributes(display, root, &a);
+        color.pixel = 0;
+        if(!XParseColor(display, a.colormap, options->fgcolor, &color)){
+            warn(DEBUG_ERROR, "Specified foreground color '%s' could not be parsed, using Black", options->fgcolor);
+            options->fgcolor = NULL;
+        } else if(!XAllocColor(display, a.colormap, &color)) {
+            warn(DEBUG_ERROR, "Cannot allocate colormap entry for foreground color '%s', using Black", options->fgcolor);
+            options->fgcolor = NULL;
+        } else {
+            fgpix = color.pixel;
+        }
+    }
+    if(options->bgcolor != NULL){
+        warn(DEBUG_DEBUG, "Allocating colormap entry for bgcolor '%s'", options->bgcolor);
+        XColor color;
+        XWindowAttributes a;
+        XGetWindowAttributes(display, root, &a);
+        color.pixel = 0;
+        if(!XParseColor(display, a.colormap, options->bgcolor, &color)){
+            warn(DEBUG_ERROR, "Specified background color '%s' could not be parsed, using default", options->bgcolor);
+            options->bgcolor = NULL;
+        } else if(!XAllocColor(display, a.colormap, &color)) {
+            warn(DEBUG_ERROR, "Cannot allocate colormap entry for background color '%s', using default", options->bgcolor);
+            options->bgcolor = NULL;
+        } else {
+            bgpix = color.pixel;
+        }
+    }
+
+    warn(DEBUG_DEBUG, "Interning atoms");
+    _NET_WM_PING = XInternAtom(display, "_NET_WM_PING", False);
+    _NET_WM_PID = XInternAtom(display, "_NET_WM_PID", False);
+    WM_PROTOCOLS = XInternAtom(display, "WM_PROTOCOLS", False);
+    WM_DELETE_WINDOW = XInternAtom(display, "WM_DELETE_WINDOW", False);
+
+    /* Load images */
+    warn(DEBUG_DEBUG, "Loading XPM");
+    err = XpmCreatePixmapFromData(display, root, wmsystemtray_xpm, &pixmap, NULL, NULL);
+    if(err != XpmSuccess) die("Could not load xpm (%d)", err);
+
+    /* Create hints */
+    warn(DEBUG_DEBUG, "Allocating window hints");
+    sizeHints = XAllocSizeHints();
+    classHint = XAllocClassHint();
+    wmHints = XAllocWMHints();
+    if(!sizeHints || !classHint || !wmHints) die("Memory allocation failed");
+
+    sizeHints->flags = USSize | USPosition | PSize | PBaseSize | PMinSize | PMaxSize;
+    sizeHints->x = 0;
+    sizeHints->y = 0;
+    sizeHints->width = 64;
+    sizeHints->height = 64;
+    sizeHints->base_width = sizeHints->width;
+    sizeHints->base_height = sizeHints->height;
+    sizeHints->min_width = 64;
+    sizeHints->min_height = 64;
+    sizeHints->max_width = 64;
+    sizeHints->max_height = 64;
+    warn(DEBUG_DEBUG, "Parsing geometry string '%s'", geometry);
+    XWMGeometry(display, screen, geometry, NULL, 1, sizeHints,
+                &sizeHints->x, &sizeHints->y, &sizeHints->width, &sizeHints->height, &dummy);
+    sizeHints->base_width = sizeHints->width;
+    sizeHints->base_height = sizeHints->height;
+    warn(DEBUG_DEBUG,"%d %d %d %d", sizeHints->x, sizeHints->y, sizeHints->base_width, sizeHints->base_height);
+
+    classHint->res_class = "wmsystemtray";
+    classHint->res_name = buf;
+
+    if(nonwmaker){
+        wmHints->flags = StateHint | WindowGroupHint;
+        wmHints->initial_state = NormalState;
+    } else {
+        wmHints->flags = StateHint | IconWindowHint | IconPositionHint | WindowGroupHint;
+        wmHints->initial_state = WithdrawnState;
+        wmHints->icon_x = sizeHints->x;
+        wmHints->icon_y = sizeHints->y;
+    }
+
+    wmProtocols[0] = _NET_WM_PING;
+    wmProtocols[1] = WM_DELETE_WINDOW;
+
+    machineName.encoding = XA_STRING;
+    machineName.format = 8;
+    machineName.nitems = XmuGetHostname(hostname, sizeof(hostname));
+    machineName.value = (unsigned char *) hostname;
+
+    /* Create windows */
+    warn(DEBUG_DEBUG, "Allocating space for %d windows", num_windows);
+    mainwin = malloc(num_windows * sizeof(*mainwin));
+    iconwin = nonwmaker?mainwin:malloc(num_windows * sizeof(*iconwin));
+    if(!mainwin || !iconwin) die("Memory allocation failed");
+
+    warn(DEBUG_DEBUG, "Creating selection window");
+    selwindow = XCreateSimpleWindow(display, root, -1,-1,1,1,0,0,0);
+    XSelectInput(display, selwindow, selwindow_mask);
+    strncpy(buf, "selwindow", sizeof(buf));
+    XSetClassHint(display, selwindow, classHint);
+    XStoreName(display, selwindow, PROGNAME);
+//    XSetCommand(display, selwindow, argv, argc);
+    XSetWMProtocols(display, selwindow, wmProtocols, 2);
+    XSetWMClientMachine(display, selwindow, &machineName);
+    XChangeProperty(display, selwindow, _NET_WM_PID, XA_CARDINAL, 32, PropModeReplace, (unsigned char *)&pid, 1);
+    XShapeCombineRectangles(display, selwindow, ShapeBounding, 0, 0, NULL, 0, ShapeSet, YXBanded);
+
+    warn(DEBUG_DEBUG, "Creating GCs");
+    gcm = GCForeground | GCBackground | GCGraphicsExposures | GCFont;
+    gcv.foreground = fgpix;
+    gcv.background = bgpix;
+    gcv.graphics_exposures = True;
+    gcv.font = XLoadFont(display, "10x20");
+    gc10x20 = XCreateGC(display, root, gcm, &gcv);
+    gcv.font = XLoadFont(display, "5x8");
+    gc5x8 = XCreateGC(display, root, gcm, &gcv);
+
+    for(int i=0; i<num_windows; i++){
+        if(nonwmaker){
+            iconwin[i] = XCreateSimpleWindow(display, root, sizeHints->x, sizeHints->y, sizeHints->width, sizeHints->height, 1, fgpix, bgpix);
+        } else {
+            mainwin[i] = XCreateSimpleWindow(display, root, -1,-1,1,1,0,0,0);
+            iconwin[i] = XCreateSimpleWindow(display, mainwin[i], sizeHints->x, sizeHints->y, sizeHints->width, sizeHints->height, 1, fgpix, bgpix);
+        }
+        warn(DEBUG_DEBUG, "Dock window #%d is %lx", i, iconwin[i]);
+
+        XSetWMNormalHints(display, mainwin[i], sizeHints);
+        XSetWMNormalHints(display, iconwin[i], sizeHints);
+
+        snprintf(buf, sizeof(buf), "%s%d", PROGNAME, i);
+        XSetClassHint(display, mainwin[i], classHint);
+        XSetClassHint(display, iconwin[i], classHint);
+
+        XSelectInput(display, iconwin[i], ButtonPressMask | ExposureMask | ButtonReleaseMask | StructureNotifyMask | VisibilityChangeMask);
+
+        XStoreName(display, mainwin[i], PROGNAME);
+        XStoreName(display, iconwin[i], PROGNAME);
+//        XSetCommand(display, mainwin[i], argv, argc);
+//        XSetCommand(display, iconwin[i], argv, argc);
+
+        if(!nonwmaker) wmHints->icon_window = iconwin[i];
+        wmHints->window_group = mainwin[i];
+        XSetWMHints(display, mainwin[i], wmHints);
+
+        XSetWMProtocols(display, mainwin[i], wmProtocols, 2);
+        XSetWMProtocols(display, iconwin[i], wmProtocols, 2);
+
+        XSetWMClientMachine(display, mainwin[i], &machineName);
+        XChangeProperty(display, mainwin[i], _NET_WM_PID, XA_CARDINAL, 32, PropModeReplace, (unsigned char *)&pid, 1);
+        XSetWMClientMachine(display, iconwin[i], &machineName);
+        XChangeProperty(display, iconwin[i], _NET_WM_PID, XA_CARDINAL, 32, PropModeReplace, (unsigned char *)&pid, 1);
+
+        if(!nonwmaker || options->bgcolor == NULL){
+            XSetWindowBackgroundPixmap(display, iconwin[i], ParentRelative);
+            XShapeCombineRectangles(display, iconwin[i], ShapeBounding, 0, 0, rects, 2, ShapeSet, YXBanded);
+        }
+
+        XMapWindow(display, mainwin[i]);
+    }
+
+    warn(DEBUG_DEBUG, "Freeing X hints");
+    XFree(wmHints);
+    XFree(sizeHints);
+    XFree(classHint);
+
+//    update();
+}
+
+
+static void standalone_init(struct wmsystemtray_options* options)
 {
+    create_dock_windows(options);
     xembed = XInternAtom(display, "_XEMBED", False);
     xembed_info = XInternAtom(display, "_XEMBED_INFO", False);
 }

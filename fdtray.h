@@ -6,7 +6,7 @@
 
 struct fdtray_callback
 {
-    void (*init)();
+    void (*init)(struct wmsystemtray_options* options);
 
     // Systray stuff
     void (*addIcon)(Window w);
@@ -27,6 +27,6 @@ struct fdtray_callback
 #define SYSTEM_TRAY_BEGIN_MESSAGE   1
 #define SYSTEM_TRAY_CANCEL_MESSAGE  2
 
-void fdtray_init(int id, struct fdtray_callback* callbacks);
+void fdtray_init(int id, struct fdtray_callback* callbacks, struct wmsystemtray_options* options);
 void fdtray_handle_event(XEvent *ev);
 void fdtray_closing();
