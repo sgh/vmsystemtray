@@ -384,6 +384,7 @@ static void standalone_destroywindow(XDestroyWindowEvent* destroywindow)
 
 void standalone_removeIcon(Window w)
 {
+    icon_remove(w);
 }
 
 static struct fdtray_callback _callbacks =
