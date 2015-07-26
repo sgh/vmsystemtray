@@ -18,13 +18,17 @@
 // http://standards.freedesktop.org/systemtray-spec/systemtray-spec-latest.html
 // http://standards.freedesktop.org/xembed-spec/xembed-spec-latest.html
 
-#include "config.h"
+//#include "config.h"
+
+#include "global.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 
 #include "wmsystemtray.h"
 #include "fdtray.h"
+#include "warn.h"
+#include "icon.h"
 
 static Atom net_system_tray_s;
 static Atom net_system_tray_opcode;

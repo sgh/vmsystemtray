@@ -15,7 +15,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "config.h"
+//#include "config.h"
+#define VERSION "adsasd"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -34,29 +35,28 @@
 #include "wmsystemtray.h"
 #include "wmsystemtray.xpm"
 #include "fdtray.h"
+#include "global.h"
+#include "warn.h"
+#include "icon.h"
 
 /* Global variables */
-volatile sig_atomic_t exitapp=False;
 volatile sig_atomic_t sigusr=0;
 
-const char *PROGNAME=NULL;
+
 Bool nonwmaker=False;
 int iconsize=24;
-Bool need_update=False;
 
 static char *display_name=NULL;
 static char *geometry="";
-static int debug_level=DEBUG_WARN;
 static int icons_per_row=2;
 static int icons_per_col=2;
-static int num_windows=1;
 static Bool id_windows=False;
 static Bool point_messages=False;
 static int fill_style=0;
 static int arrow_style=0;
 //static Bool no_messages=False;
 
-Display *display=NULL;
+
 int screen=0;
 Window root=None;
 Window selwindow=None;
@@ -65,9 +65,7 @@ static Atom WM_DELETE_WINDOW;
 static Atom WM_PROTOCOLS;
 
 static Pixmap pixmap;
-static Window *mainwin=NULL, *iconwin=NULL;
-static struct trayicon *icons=NULL;
-static int num_mapped_icons=0;
+static Window *mainwin=NULL;
 static int current_page=0;
 static Window down_window=None;
 static int down_button=0;
@@ -78,7 +76,7 @@ static char *fgcolor = NULL, *bgcolor = NULL;
 #define NUM_TYPES 1
 static struct trayfuncs *types[NUM_TYPES];
 
-static struct trayfuncs *get_type(int id){
+struct trayfuncs *get_type(int id){
     if(id < 0 || id >= NUM_TYPES){
         warn(DEBUG_WARN, "Invalid tray icon type %d", id);
         return NULL;
@@ -122,97 +120,6 @@ Time get_X_time(){
     return ev.xproperty.time;
 }
 
-/* Icon handling */
-Bool is_icon_parent(Window w){
-    for(int i=0; i<num_windows; i++){
-        if(iconwin[i]==w) return True;
-    }
-    return False;
-}
-
-struct trayicon *icon_add(int type, Window w, void *data){
-    if(exitapp) return NULL;
-    if(!get_type(type)) return NULL;
-
-    struct trayicon *icon = malloc(sizeof(struct trayicon));
-    if(!icon){
-        warn(DEBUG_ERROR, "Memory allocation failed");
-        return NULL;
-    }
-
-    void *v=catch_BadWindow_errors();
-    XFixesChangeSaveSet(display, w, SetModeInsert, SaveSetRoot, SaveSetUnmap);
-    if(uncatch_BadWindow_errors(v)){
-        warn(DEBUG_INFO, "Tray icon %lx is invalid, not adding", w);
-        return NULL;
-    }
-
-    warn(DEBUG_DEBUG, "Adding tray icon %lx of type %d", w, type);
-    icon->type = type;
-    icon->w = w;
-    icon->data = data;
-    icon->parent = None;
-    icon->x = 0; icon->y = 0;
-    icon->mapped = False;
-    icon->visible = False;
-    icon->next = NULL;
-    struct trayicon **p;
-    for(p = &icons; *p; p=&(*p)->next);
-    *p = icon;
-    need_update = True;
-    return icon;
-}
-
-void icon_remove(Window w){
-    struct trayicon *i, **n;
-    n = &icons;
-    while(*n){
-        i = *n;
-        if(i->w == w){
-            *n = i->next;
-            warn(DEBUG_DEBUG, "Removing tray icon %lx of type %d", i->w, i->type);
-            struct trayfuncs *funcs = get_type(i->type);
-            if(funcs && funcs->remove_icon) funcs->remove_icon(i);
-            if(i->mapped){
-                num_mapped_icons--;
-                need_update = True;
-            }
-            free(i);
-        } else {
-            n = &i->next;
-        }
-    }
-}
-
-struct trayicon *icon_find(Window w){
-    for(struct trayicon *i=icons; i; i=i->next){
-        if(i->w == w) return i;
-    }
-    return NULL;
-}
-
-Bool icon_set_mapping(struct trayicon *icon, Bool map){
-    if(icon->mapped == map) return True;
-
-    warn(DEBUG_DEBUG, "%sapping tray icon %lx", map?"M":"Unm", icon->w);
-    icon->mapped = map;
-    num_mapped_icons += map?1:-1;
-    need_update = True;
-    return True;
-}
-
-
-Bool icon_begin_message(Window w, int id, int length, int timeout){
-    warn(DEBUG_INFO, "begin_icon_message called for window %lx id %d (length=%d timeout=%d)", w, id, length, timeout);
-    // XXX
-    return False;
-}
-
-Bool icon_message_data(Window w, int id, char *data, int datalen){
-    warn(DEBUG_INFO, "icon_message_data called for window %lx id %d: %.*s", w, id, datalen, data);
-    // XXX
-    return False;
-}
 
 //static void icon_message_show(struct iconmessage *msg){
 //    // XXX
@@ -291,7 +198,7 @@ redo:
         }
     }
 
-    struct trayicon *icon = icons;
+    struct trayicon *icon = icon_getall();
     i=-current_page*icons_per_page;
     while(icon){
         void *v=catch_BadWindow_errors();
@@ -554,13 +461,13 @@ static void create_dock_windows(int argc, char **argv){
     update();
 }
 
-static void cleanup(){
+void cleanup(){
     warn(DEBUG_INFO, "Cleaning up for exit");
     for(int i=0; i<NUM_TYPES; i++){
         if(types[i] && types[i]->closing) types[i]->closing();
     }
     warn(DEBUG_DEBUG, "Removing all icons");
-    while(icons) icon_remove(icons->w);
+    while(icon_getall()) icon_remove(icon_getall()->w);
     warn(DEBUG_DEBUG, "Deinitializing protocols");
     for(int i=0; i<NUM_TYPES; i++){
         if(types[i] && types[i]->deinit) types[i]->deinit();
@@ -569,31 +476,6 @@ static void cleanup(){
     if(mainwin) free(mainwin);
     if(iconwin && !nonwmaker) free(iconwin);
     if(display) XCloseDisplay(display);
-}
-
-/* Error and warning functions */
-void warn(int level, char *fmt, ...){
-    va_list ap;
-
-    if(debug_level<level) return;
-    va_start(ap, fmt);
-    fprintf(stderr, "%s: ", PROGNAME);
-    vfprintf(stderr, fmt, ap);
-    fprintf(stderr, "\n");
-    va_end(ap);
-}
-
-void die(char *fmt, ...){
-    va_list ap;
-
-    cleanup();
-
-    va_start(ap, fmt);
-    fprintf(stderr, "%s: ", PROGNAME);
-    vfprintf(stderr, fmt, ap);
-    fprintf(stderr, "\n");
-    va_end(ap);
-    exit(1);
 }
 
 static void usage(int exitcode) __attribute__ ((noreturn));
