@@ -43,6 +43,7 @@ set(SOURCES
 	icon.c
 	warn.c
 	global.c
+	standalone_tray.c
 )
 
 
@@ -52,6 +53,7 @@ set(HEADERS
 	icon.h
 	warn.h
 	global.h
+	standalone_tray.h
 )
 
 

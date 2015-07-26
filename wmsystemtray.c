@@ -38,6 +38,7 @@
 #include "global.h"
 #include "warn.h"
 #include "icon.h"
+#include "standalone_tray.h"
 
 /* Global variables */
 volatile sig_atomic_t sigusr=0;
@@ -73,17 +74,6 @@ static long selwindow_mask = PropertyChangeMask;
 static GC gc10x20, gc5x8;
 static char *fgcolor = NULL, *bgcolor = NULL;
 
-#define NUM_TYPES 1
-static struct trayfuncs *types[NUM_TYPES];
-
-struct trayfuncs *get_type(int id){
-    if(id < 0 || id >= NUM_TYPES){
-        warn(DEBUG_WARN, "Invalid tray icon type %d", id);
-        return NULL;
-    } else {
-        return types[id];
-    }
-}
 
 /* X functions */
 typedef int (*x_error_handler)(Display *, XErrorEvent *);
@@ -161,7 +151,6 @@ static void update(){
     int i, j, x, y, w;
     int icons_per_page=icons_per_row*icons_per_col*num_windows;
     char buf[42];
-    Window dummy;
     int pages;
 
     need_update = False;
@@ -243,11 +232,12 @@ redo:
             XMoveResizeWindow(display, icon->w, x, y, iconsize, iconsize);
             XClearArea(display, icon->w, 0, 0, 0, 0, True);
             XMapRaised(display, icon->w);
+            Window dummy;
             XTranslateCoordinates(display, icon->w, root, iconsize/2, iconsize/2, &icon->x, &icon->y, &dummy);
         }
         if(uncatch_BadWindow_errors(v)){
             warn(DEBUG_INFO, "Tray icon %lx is invalid, removing and restarting layout", icon->w);
-            icon_remove(icon->w);
+            standalone_tray_callbacks()->removeIcon(icon->w);
             goto redo;
         }
         if(icon->mapped) i++;
@@ -463,15 +453,10 @@ static void create_dock_windows(int argc, char **argv){
 
 void cleanup(){
     warn(DEBUG_INFO, "Cleaning up for exit");
-    for(int i=0; i<NUM_TYPES; i++){
-        if(types[i] && types[i]->closing) types[i]->closing();
-    }
+    fdtray_closing();
     warn(DEBUG_DEBUG, "Removing all icons");
     while(icon_getall()) icon_remove(icon_getall()->w);
     warn(DEBUG_DEBUG, "Deinitializing protocols");
-    for(int i=0; i<NUM_TYPES; i++){
-        if(types[i] && types[i]->deinit) types[i]->deinit();
-    }
     warn(DEBUG_DEBUG, "Closing display");
     if(mainwin) free(mainwin);
     if(iconwin && !nonwmaker) free(iconwin);
@@ -583,9 +568,7 @@ int main(int argc, char *argv[]){
     create_dock_windows(argc, argv);
 
     warn(DEBUG_DEBUG, "Initializing protocols");
-    for(int i=0; i<NUM_TYPES; i++) types[i]=NULL;
-    if(!(types[0] = fdtray_init(0)))
-        die("Could not initialize the freedesktop.org tray protocol");
+    fdtray_init(0, standalone_tray_callbacks());
 
     warn(DEBUG_DEBUG, "Setting signal handlers");
     signal(SIGINT, sighandler);
@@ -727,9 +710,7 @@ int main(int argc, char *argv[]){
                 }
                 break;
             }
-            for(int i=0; i<NUM_TYPES; i++){
-                if(types[i]->handle_event) types[i]->handle_event(&ev);
-            }
+            fdtray_handle_event(&ev);
         }
         if(exitapp) break;
         warn(DEBUG_DEBUG, "Need update? %s", need_update?"Yes":"No");

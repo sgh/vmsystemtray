@@ -19,26 +19,6 @@ struct trayicon {
 };
 
 
-#define NUM_TYPES 1
-
-
-// This struct holds the necessary interface functions
-struct trayfuncs {
-    // Handle an X event. Or just ignore it, if it doesn't pertain to you.
-    void (*handle_event)(XEvent *);
-
-    // Called when a tray icon is being removed.
-    void (*remove_icon)(struct trayicon *);
-
-    // Called when the app is closing, before all icons are removed.
-    // This should take whatever action is necessary to not accept any more
-    // icons.
-    void (*closing)(void);
-
-    // Called after all icons have been removed.
-    void (*deinit)(void);
-};
-
 /*
  * Icon handling
  */

@@ -24,7 +24,6 @@ Bool is_icon_parent(Window w){
 
 struct trayicon *icon_add(int type, Window w, void *data){
     if(exitapp) return NULL;
-    if(!get_type(type)) return NULL;
 
     struct trayicon *icon = malloc(sizeof(struct trayicon));
     if(!icon){
@@ -55,6 +54,18 @@ struct trayicon *icon_add(int type, Window w, void *data){
     return icon;
 }
 
+
+static void iremove(struct trayicon *icon){
+    warn(DEBUG_INFO, "fdtray: Reparenting %lx to the root window", icon->w);
+    void *v=catch_BadWindow_errors();
+    XSelectInput(display, icon->w, NoEventMask);
+    XUnmapWindow(display, icon->w);
+    XReparentWindow(display, icon->w, root, 0,0);
+    uncatch_BadWindow_errors(v);
+    free(icon->data);
+}
+
+
 void icon_remove(Window w){
     struct trayicon *i, **n;
     n = &icons;
@@ -63,8 +74,7 @@ void icon_remove(Window w){
         if(i->w == w){
             *n = i->next;
             warn(DEBUG_DEBUG, "Removing tray icon %lx of type %d", i->w, i->type);
-            struct trayfuncs *funcs = get_type(i->type);
-            if(funcs && funcs->remove_icon) funcs->remove_icon(i);
+            iremove(i);
             if(i->mapped){
                 num_mapped_icons--;
                 need_update = True;
