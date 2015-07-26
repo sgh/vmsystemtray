@@ -2,30 +2,8 @@
 *.swp
 *~
 
-# Automake / autoconf
-Makefile
-Makefile.in
-/autom4te.cache
-/aclocal.m4
-/compile
-/configure
-/config.h
-/config.h.in
-/config.log
-/config.status
-/confdefs.h
-/conftest.c
-/conftest.err
-/depcomp
-/install-sh
-/missing
-/stamp-h1
-.deps
+# cmake build dir
+/build
 
-# Local debian directory
-/debian
-
-# Generated files
-*.a
-*.o
-wmsystemtray
+# Qt Creator configuration file
+/CMakeLists.txt.user
